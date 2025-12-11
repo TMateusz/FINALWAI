@@ -1,0 +1,22 @@
+# Cache-Control dla obrazów (1 tydzień)
+<IfModule mod_headers.c>
+    <FilesMatch "\.(jpg|png)$">
+        Header set Cache-Control "max-age=604800, public"
+    </FilesMatch>
+</IfModule>
+
+# Kompresja GZIP/Deflate
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Jeśli plik/katalog naprawdę istnieje - nie przepisuj
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # W przeciwnym razie przekieruj wszystko do front_controller.php
+    RewriteRule ^(.*)$ front_controller.php?action=/$1 [QSA,L]
+</IfModule>
