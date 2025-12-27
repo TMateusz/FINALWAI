@@ -6,11 +6,14 @@
 
 // Oblicz sumę ilości (nie tylko liczbę różnych zdjęć)
 $totalQuantity = 0;
-if (isset($_SESSION['quantities']) && is_array($_SESSION['quantities'])) {
-    $totalQuantity = array_sum($_SESSION['quantities']);
-} elseif (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
-    // Jeśli brak quantities, policz same pozycje
-    $totalQuantity = count($_SESSION['cart']);
+$quantities = session_get('quantities', []);
+if (is_array($quantities) && !empty($quantities)) {
+    $totalQuantity = array_sum($quantities);
+} else {
+    $cart = session_get('cart', []);
+    if (is_array($cart)) {
+        $totalQuantity = count($cart);
+    }
 }
 ?>
 <a href="/cart">🛒(<?= $totalQuantity ?>)</a>

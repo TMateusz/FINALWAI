@@ -25,15 +25,21 @@ const IMAGE_HANDLERS = [
  */
 function createThumbnail($src, $dest, $targetWidth = 200, $targetHeight = 125) {
 
-    $type = exif_imagetype($src);
+    $info = @getimagesize($src);
+    $type = $info[2] ?? null;
 
-    if (!$type || !IMAGE_HANDLERS[$type]) {
+    if (!$type || !isset(IMAGE_HANDLERS[$type])) {
         return null;
     }
 
-    $image = call_user_func(IMAGE_HANDLERS[$type]['load'], $src);
+    $loadFunc = IMAGE_HANDLERS[$type]['load'];
 
-    if (!$image) {
+    if (function_exists($loadFunc)) {
+        $image = call_user_func($loadFunc, $src);
+        if (!$image) {
+            return null;
+        }
+    } else {
         return null;
     }
     // get original image width and height
@@ -74,10 +80,24 @@ function createThumbnail($src, $dest, $targetWidth = 200, $targetHeight = 125) {
     // - set the correct quality level
 
     // save the duplicate version of the image to disk
-    return call_user_func(
-        IMAGE_HANDLERS[$type]['save'],
-        $thumbnail,
-        $dest,
-        IMAGE_HANDLERS[$type]['quality']
-    );
+    $saveFunc = IMAGE_HANDLERS[$type]['save'];
+    $quality = IMAGE_HANDLERS[$type]['quality'] ?? null;
+    if (function_exists($saveFunc)) {
+        if ($quality !== null) {
+            return call_user_func($saveFunc, $thumbnail, $dest, $quality);
+        } else {
+            return call_user_func($saveFunc, $thumbnail, $dest);
+        }
+    }
+
+    // As fallback, try to use imagepng/jpeg directly with defaults
+    if ($type == IMAGETYPE_JPEG) {
+        return imagejpeg($thumbnail, $dest, 85);
+    } elseif ($type == IMAGETYPE_PNG) {
+        return imagepng($thumbnail, $dest, 6);
+    } elseif ($type == IMAGETYPE_GIF) {
+        return imagegif($thumbnail, $dest);
+    }
+
+    return null;
 }

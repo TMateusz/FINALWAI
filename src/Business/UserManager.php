@@ -1,10 +1,9 @@
 <?php
-    require_once __DIR__ . '/../Models/UserModel.php';
-
+    
     class UserManager{
         private $userModel;
-        public function __construct(){
-            $this->userModel = new UserModel();
+        public function __construct($userModel = null){
+            $this->userModel = $userModel ?? new UserModel();
         }
         public static function validateUserData($email, $login, $password1, $password2){
             $errors = [];

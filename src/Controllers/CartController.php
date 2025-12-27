@@ -1,22 +1,22 @@
 <?php
 include_once __DIR__. '/../Controllers/BaseController.php';
-include_once __DIR__. '/../Business/ImageManager.php';
-include_once __DIR__. '/../Models/ImageModel.php';
-include_once __DIR__. '/../Business/AccountManager.php';
-include_once __DIR__. '/../Business/UserManager.php';
-include_once __DIR__. '/../Models/UserModel.php';
 
 class CartController extends BaseController{
     private $imageManager;
     private $accountManager;
 
     public function __construct(){
-        $this->imageManager = new ImageManager();
-        $this->accountManager = new AccountManager();
+        $imageModel = new ImageModel();
+        $userModel = new UserModel();
+        $this->imageManager = new ImageManager($imageModel);
+        $this->accountManager = new AccountManager($userModel, new UserManager($userModel));
     }
 
     public function index(){ 
-        $cartImages = $this->imageManager->getCart();
+        $cart = session_get('cart', []);
+        $quantities = session_get('quantities', []);
+        $login = session_get('login', null);
+        $cartImages = $this->imageManager->getCart($cart, $quantities, $login);
         $data = ['cartImages' => $cartImages];
         return $this->render('cart_view', $data);
     }
@@ -26,25 +26,27 @@ class CartController extends BaseController{
         if (isset($_POST['quantity']) && isset($_POST['imageFile'])) {
             $quantities = $_POST['quantity'];
             $imageFiles = $_POST['imageFile'];
-            $_SESSION['quantities'] = [];
-            
+            $sessQuant = [];
             foreach ($imageFiles as $index => $file) {
                 if (isset($quantities[$index]) && $quantities[$index] > 0) {
-                    $_SESSION['quantities'][$file] = (int)$quantities[$index];
+                    $sessQuant[$file] = (int)$quantities[$index];
                 }
             }
+            session_set('quantities', $sessQuant);
         }
         
         // Usuń zaznaczone elementy
         if (isset($_POST['toRemove'])) {
             $toRemove = $_POST['toRemove'];
-            $cart = $_SESSION['cart'] ?? [];
-            $_SESSION['cart'] = array_diff($cart, $toRemove);
-            $_SESSION['cart'] = array_values($_SESSION['cart']);
+            $cart = session_get('cart', []);
+            $newCart = array_values(array_diff($cart, $toRemove));
+            session_set('cart', $newCart);
 
+            $quantities = session_get('quantities', []);
             foreach ($toRemove as $imageFile) {
-                unset($_SESSION['quantities'][$imageFile]);
+                if (isset($quantities[$imageFile])) unset($quantities[$imageFile]);
             }
+            session_set('quantities', $quantities);
         }
         return $this->redirect('/cart');
     }

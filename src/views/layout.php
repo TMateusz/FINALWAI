@@ -1,6 +1,7 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// Use unified session helper
+if (!function_exists('session_get')){
+    include_once __DIR__ . '/../Core/session_helpers.php';
 }
 ?>
 <!DOCTYPE html>
@@ -24,9 +25,9 @@ if (session_status() === PHP_SESSION_NONE) {
 
         <?php require __DIR__ . '/partial/cart_counter.php'; ?>
 
-        <?php if (isset($_SESSION['login'])): ?>
+        <?php if (session_get('login') !== null): ?>
             <span class="user-links">
-                <?php $loginEsc = htmlspecialchars($_SESSION['login']); ?>
+                <?php $loginEsc = htmlspecialchars(session_get('login')); ?>
                 <img src="/static/profileimages/<?= $loginEsc ?>.jpg" alt="Avatar" width="30" height="30"
                      onerror="(function(img){var exts=['jpg','png'];var base='/static/profileimages/<?= $loginEsc ?>.';var i=1;img.onerror=function(){ if(i>=exts.length){img.onerror=null; img.src='/static/profileimages/default-avatar.png'; return;} img.src=base+exts[i++]; }; img.src=base+exts[0]; })(this)">
                 <a href="/logout">WYLOGUJ (<?= $loginEsc ?>)</a>

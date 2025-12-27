@@ -2,24 +2,20 @@
     // Załącz:
 
     include_once __DIR__. '/../Controllers/BaseController.php';
-    include_once __DIR__. '/../Business/ImageManager.php';
-    include_once __DIR__. '/../Models/ImageModel.php';
-    include_once __DIR__. '/../Business/AccountManager.php';
-    include_once __DIR__. '/../Business/UserManager.php';
-    include_once __DIR__. '/../Models/UserModel.php';
 
     class GalleryController extends BaseController{
         private $imageManager;
         private $accountManager;
 
         public function __construct(){
-            $this->imageManager = new ImageManager();
-            $this->accountManager = new AccountManager();
+            $imageModel = new ImageModel();
+            $userModel = new UserModel();
+            $this->imageManager = new ImageManager($imageModel);
+            $this->accountManager = new AccountManager($userModel, new UserManager($userModel));
         }
         
         public function index(){
-            $user = $this->accountManager->getCurrentUser();
-            $login = $user ? $user['login'] : null;
+            $login = session_get('login', null);
             $images = $this->imageManager->getAllImages($login);
             
             $photoPerPage = 3;
@@ -32,7 +28,7 @@
             $imagesToShow = array_slice($images, $startIndex, $photoPerPage);
             
             // Pobierz koszyk z sesji (jeśli istnieje)
-            $cart = $_SESSION['cart'] ?? [];
+            $cart = session_get('cart', []);
             
             $data = [
                 'images' => $imagesToShow,
@@ -44,33 +40,64 @@
         }
 
         public function saveCart(){
-            if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cart'])){
-                // Nadpisz koszyk prostą listą przesłaną przez formularz
-                $_SESSION['cart'] = $_POST['cart'];
+            if ($_SERVER['REQUEST_METHOD'] === 'POST'){
+                $posted = isset($_POST['cart']) && is_array($_POST['cart']) ? $_POST['cart'] : [];
+                $existing = session_get('cart', []);
+                if (!is_array($existing)) $existing = [];
 
-                if (!isset($_SESSION['quantities']) || !is_array($_SESSION['quantities'])) {
-                    $_SESSION['quantities'] = [];
-                }
+                // Merge posted selections with existing cart so selections across pages are preserved
+                $merged = array_values(array_unique(array_merge($existing, $posted)));
+                session_set('cart', $merged);
 
-                // Usuń quantities dla plików, które nie znajdują się już w koszyku
-                foreach (array_keys($_SESSION['quantities']) as $file) {
-                    if (!in_array($file, $_SESSION['cart'])) {
-                        unset($_SESSION['quantities'][$file]);
+                $quantities = session_get('quantities', []);
+                if (!is_array($quantities)) $quantities = [];
+
+                // Ensure default quantity 1 for all items in merged cart
+                foreach ($merged as $file) {
+                    if (!isset($quantities[$file]) || (int)$quantities[$file] <= 0) {
+                        $quantities[$file] = 1;
                     }
                 }
 
-                // Zapewnij domyślną ilość 1 dla plików w koszyku
-                foreach ($_SESSION['cart'] as $file) {
-                    if (!isset($_SESSION['quantities'][$file]) || (int)$_SESSION['quantities'][$file] <= 0) {
-                        $_SESSION['quantities'][$file] = 1;
-                    }
-                }
-            } else {
-                // Pusty koszyk -> wyczyść też quantities
-                $_SESSION['cart'] = [];
-                $_SESSION['quantities'] = [];
+                session_set('quantities', $quantities);
             }
 
             return $this->redirect('/gallery');
+        }
+
+        /**
+         * AJAX endpoint to update single file selection in session cart.
+         * Expects POST: file=<filename>&checked=0|1
+         */
+        public function updateCart(){
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {    
+                http_response_code(405);
+                echo json_encode(['ok' => false, 'error' => 'Method not allowed']);
+                return;
+            }
+
+            $file = $_POST['file'] ?? null;
+            $checked = isset($_POST['checked']) ? (bool)intval($_POST['checked']) : null;
+
+            if (!$file || $checked === null){
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'Missing parameters']);
+                return;
+            }
+
+            $cart = session_get('cart', []);
+            if (!is_array($cart)) $cart = [];
+
+            if ($checked){
+                if (!in_array($file, $cart)) $cart[] = $file;
+            } else {
+                $index = array_search($file, $cart);
+                if ($index !== false) array_splice($cart, $index, 1);
+            }
+
+            session_set('cart', $cart);
+
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'cartCount' => count($cart)]);
         }
     }

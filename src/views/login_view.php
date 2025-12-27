@@ -9,7 +9,21 @@
 
     
     <hr>
-    
+    <?php
+        // show flash messages from session (registration success or profile upload warning)
+        $regSuccess = session_get('registration_success', null);
+        $profileWarn = session_get('profile_upload_warning', null);
+        if ($regSuccess) {
+            echo '<p style="color: green;">✅ ' . htmlspecialchars($regSuccess) . '</p>';
+            session_remove('registration_success');
+        }
+        if ($profileWarn) {
+            echo '<p style="color: orange;">⚠️ ' . htmlspecialchars($profileWarn) . '</p>';
+            session_remove('profile_upload_warning');
+        }
+
+    ?>
+
     <?php if (isset($error) && $error): ?>
         <p style="color: red;">❌ <?= htmlspecialchars($error) ?></p>
     <?php endif; ?>

@@ -3,6 +3,8 @@
     class View{
         public static function render($viewName, $data = []){
             extract ($data);
+            // provide unified session helpers to views
+            include_once __DIR__ . '/session_helpers.php';
             
             if (!file_exists(__DIR__ . "/../views/{$viewName}.php")){
                 echo "View file not found.";

@@ -1,13 +1,11 @@
 <?php
-    require_once __DIR__ . '/../Models/ImageModel.php';
-    // Ensure thumbnail helper is available early (use project-root `static/`)
     require_once __DIR__ . '/../../static/miniature.php';
 
     class ImageManager{
         private $imageModel;
 
-        public function __construct(){
-            $this->imageModel = new ImageModel();
+        public function __construct($imageModel = null){
+            $this->imageModel = $imageModel ?? new ImageModel();
         }
 
         public function getAllImages($login=null){
@@ -15,15 +13,12 @@
             return $this->prepareMiniature($images);
         }
         public function prepareMiniature(&$images){
-            // ensure helper from project-root `static/` is available
             require_once __DIR__ . '/../../static/miniature.php';
 
             $result=[];
-            // build base URL (handles subfolder installs)
             $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
             $baseUrl = ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') ? '' : $scriptDir;
             foreach ($images as $image){
-                // filesystem paths point to project root `static/` so web URL `/static/...` works
                 $source = __DIR__ . '/../../static/images/' . $image['plik'];
                 $destination = __DIR__ . '/../../static/miniature/' .  preg_replace('/(\.[^.]+)$/', '_miniature$1', $image['plik']);
 
@@ -41,26 +36,13 @@
         }
 
         public function createMiniature(string $source, string $destination, int $maxW = 200, int $maxH = 125){
-            // Ensure destination directory exists
             $dir = dirname($destination);
             if (!is_dir($dir)){
                 mkdir($dir, 0777, true);
             }
 
-            // Use the existing helper if available (defensive)
-            if (!function_exists('createThumbnail')){
-                // try to include helper from project-root `static/`
-                @include_once __DIR__ . '/../../static/miniature.php';
-            }
-
-            if (function_exists('createThumbnail')){
-                return createThumbnail($source, $destination, $maxW, $maxH);
-            }
-
-            // If helper is not available, try a simple GD fallback
-            if (!extension_loaded('gd')){
-                return false;
-            }
+            // Call the project helper directly (assumed available)
+            return createThumbnail($source, $destination, $maxW, $maxH);
 
             // Basic fallback: load image and resample
             $info = getimagesize($source);
@@ -113,14 +95,12 @@
             return $this->prepareMiniature($images);
         }
         
-        public function uploadImage($title, $author, $filename, $isPublic){
+        public function uploadImage($title, $author, $fileArray, $isPublic){
             // use uploader from project-root `static/` (not src/static)
             require __DIR__ . '/../../static/file_upload.php';
             $uploader = new FileUploader();
             $uploadPath = __DIR__ . '/../../static/images/';
-            $_FILES['tmp_image']= $filename;
-            $savedFilename = $uploader->uploadFile('tmp_image', $uploadPath);
-            unset($_FILES['tmp_image']);
+            $savedFilename = $uploader->uploadFromArray($fileArray, $uploadPath);
 
             if (!$savedFilename) {
                 return $uploader->getErrors();
@@ -151,16 +131,22 @@
             $tmpName = $file['tmp_name'] ?? null;
             $size = $file['size'] ?? 0;
 
+            $errors = [];
+
             if (!$tmpName || !is_uploaded_file($tmpName)){
-                return ['Nie znaleziono przesłanego pliku.'];
+                $errors[] = 'Nie znaleziono przesłanego pliku.';
             }
 
             $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
             if (!in_array($ext, $allowed)){
-                return ['Nieobsługiwany format pliku. Dozwolone: jpg, png.'];
+                $errors[] = 'Nieobsługiwany format pliku. Dozwolone: jpg, png.';
             }
             if ($size > $maxSize){
-                return ['Plik jest za duży. Maksymalny rozmiar to 1 MB.'];
+                $errors[] = 'Plik jest za duży. Maksymalny rozmiar to 1 MB.';
+            }
+
+            if (!empty($errors)) {
+                return $errors;
             }
 
             $safeLogin = preg_replace('/[^a-zA-Z0-9_-]/', '_', $login);
@@ -176,21 +162,15 @@
             return $miniName;
         }
 
-        public function addCart($CartId){
-            $_SESSION['cart'][] = $CartId;
-        }
-        public function getCart(){
-            if (empty($_SESSION['cart'])){
+        public function getCart(array $cart, array $quantities = [], $login = null){
+            if (empty($cart)){
                 return [];
             }
-            // jeśli użytkownik jest zalogowany, przekaż jego login do modelu,
-            // żeby metoda zwróciła także prywatne obrazy należące do niego
-            $login = $_SESSION['login'] ?? null;
             $allImages = $this->imageModel->getAllImages($login);
             $cartImages = [];
             foreach ($allImages as $image){
-                if (in_array($image['plik'], $_SESSION['cart'])){
-                    $image['quantity'] = $_SESSION['quantities'][$image['plik']] ?? 1;
+                if (in_array($image['plik'], $cart)){
+                    $image['quantity'] = $quantities[$image['plik']] ?? 1;
                     $cartImages[] = $image;
                 }
             }

@@ -1,15 +1,12 @@
 <?php
-
-include_once __DIR__ . '/../Models/UserModel.php';
-include_once __DIR__ . '/../Business/UserManager.php';
-include_once __DIR__ . '/../Business/AccountManager.php';
 include_once __DIR__ . '/../Controllers/BaseController.php';
 
     class AuthController extends BaseController{
         private $accountManager;
 
         public function __construct(){
-            $this->accountManager = new AccountManager();
+                $userModel = new UserModel();
+                $this->accountManager = new AccountManager($userModel, new UserManager($userModel));
         }
 
         public function login(){
@@ -19,7 +16,16 @@ include_once __DIR__ . '/../Controllers/BaseController.php';
                 $password = $_POST['password1'];
                 $user = $this->accountManager->authenticate($login, $password);
                 if ($user){
-                    $this->accountManager->login($user['id'], $user['login']);
+                    // Regenerate session id to prevent fixation and ensure new cookie
+                    if (function_exists('session_regenerate')) {
+                        session_regenerate();
+                    } else {
+                        @session_start();
+                        @session_regenerate_id(true);
+                    }
+                    // Set session in controller (keep session handling at controller level)
+                    session_set('user_id', $user['id']);
+                    session_set('login', $user['login']);
                     return $this->redirect('/gallery');
                 } else {
                     $data['error'] = "Błędny login lub hasło.";
@@ -40,7 +46,13 @@ include_once __DIR__ . '/../Controllers/BaseController.php';
 
                 $result = $this->accountManager->register($email, $login, $password1, $password2, $profileFile);
                 if ($result === true){
-                    $data=['success' => "Rejestracja zakończona sukcesem. Możesz się teraz zalogować."];
+                    // set flash message for login page
+                    session_set('registration_success', "Rejestracja zakończona sukcesem. Możesz się teraz zalogować.");
+                    return $this->redirect('/login');
+                } elseif (is_array($result) && isset($result['success']) && isset($result['warning'])){
+                    // Registration succeeded but with a profile upload warning — expose via session for UI
+                    session_set('profile_upload_warning', $result['warning']);
+                    session_set('registration_success', "Rejestracja zakończona sukcesem. Możesz się teraz zalogować.");
                     return $this->redirect('/login');
                 } else {
                     $data['error'] = is_array($result) ? implode(' ', $result) : $result;
@@ -51,7 +63,15 @@ include_once __DIR__ . '/../Controllers/BaseController.php';
         }
 
         public function logout(){
-            $this->accountManager->logout();
+            // Clear session here and DO NOT preserve cart/quantities (empty cart on logout)
+            session_restart_preserve([]);
+            // ensure a new session id / cookie after logout
+            if (function_exists('session_regenerate')) {
+                session_regenerate();
+            } else {
+                @session_start();
+                @session_regenerate_id(true);
+            }
             return $this->redirect('/gallery');
         }
     }

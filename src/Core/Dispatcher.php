@@ -17,13 +17,11 @@ class Dispatcher{
         $controllerName = $route['controller'];
         $actionName = $route['action'];
 
-        $file = __DIR__ . "/../Controllers/{$controllerName}.php";
-        if (!file_exists($file)){
-            echo "Controller file not found.";
+        // Rely on autoloader to load controller class file
+        if (!class_exists($controllerName)){
+            echo "Controller class not found: {$controllerName}";
             return;
         }
-        
-        require_once $file;
         $controller = new $controllerName();
         if (!method_exists($controller, $actionName)){
             echo "Action not found in controller.";

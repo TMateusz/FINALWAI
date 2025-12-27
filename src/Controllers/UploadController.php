@@ -1,22 +1,18 @@
 <?php
-    include_once __DIR__. '/../Controllers/BaseController.php';
-    include_once __DIR__. '/../Business/ImageManager.php';
-    include_once __DIR__. '/../Models/ImageModel.php';
-    include_once __DIR__. '/../Business/AccountManager.php';
-    include_once __DIR__. '/../Business/UserManager.php';
-    include_once __DIR__. '/../Models/UserModel.php';
-
     class UploadController extends BaseController{
         private $imageManager;
         private $accountManager;
 
         public function __construct(){
-            $this->imageManager = new ImageManager();
-            $this->accountManager = new AccountManager();
+            $imageModel = new ImageModel();
+            $userModel = new UserModel();
+            $this->imageManager = new ImageManager($imageModel);
+            $this->accountManager = new AccountManager($userModel, new UserManager($userModel));
         }
 
         public function index(){
-            $user = $this->accountManager->getCurrentUser();
+            $login = session_get('login', null);
+            $user = $this->accountManager->getCurrentUser($login);
             $authorDefault = (is_array($user) && isset($user['login'])) ? $user['login'] : '';
             $data = ['error' => null, 'success' => null, 'author' => $authorDefault];
             
@@ -25,7 +21,7 @@
                 $isPublic = isset($_POST['visibility']) ? (int)$_POST['visibility'] : 0;
                 $file = $_FILES['fileToUpload'];
                 $author = trim($_POST['author'] ?? $authorDefault);
-                $result = $this->imageManager->uploadImage($title, $author, $file, $isPublic); 
+                $result = $this->imageManager->uploadImage($title, $author, $file, $isPublic);
                 if ($result === true){
                     $data['success'] = "Zdjęcie zostało przesłane pomyślnie.";
                 } else {

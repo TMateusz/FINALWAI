@@ -1,9 +1,7 @@
 <?php
-    include_once __DIR__. '/../Core/Database.php';
-
     class UserModel{
         
-        public static function getByLogin($login){
+        public function getByLogin($login){
             $db=Database::getUserDB();
             $query = $db->prepare("SELECT id, login, password, email FROM users WHERE login = ?");
             $query->execute([$login]);
@@ -11,7 +9,7 @@
             return $result ? $result : null;
         }
 
-        public static function create($login, $password, $email){
+        public function create($login, $password, $email){
             $db = Database::getUserDB();
             $query=$db->prepare("SELECT id FROM users WHERE login = ? OR email = ?");
             $query->execute([$login, $email]);

@@ -22,20 +22,19 @@ class FileUploader {
 
         if ($file['size'] > $this->maxSize) {
             $this->errors[] = 'Plik jest za duży. Maksymalny rozmiar to 1 MB.';
-            return false;
         }
 
         if (!in_array($fileType, $this->extensions)) {
             $this->errors[] = 'Nieobsługiwany format pliku. Dozwolone: jpg, png.';
-            return false;
         }
 
         if (!is_dir($destinationDir)) {
             if (!mkdir($destinationDir, 0755, true)) {
                 $this->errors[] = 'Nie można utworzyć katalogu docelowego.';
-                return false;
             }
+
         }
+        if (!empty($this->errors)) return false;
 
         if (move_uploaded_file($file['tmp_name'], $targetFile)) {
             return basename($targetFile);

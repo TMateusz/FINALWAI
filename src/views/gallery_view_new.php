@@ -38,6 +38,26 @@
 
 </form>
 
+<script>
+// Persist checkbox state via AJAX so selections survive paging
+(function(){
+    function postUpdate(file, checked){
+        try{
+            var fd = new FormData();
+            fd.append('file', file);
+            fd.append('checked', checked ? '1' : '0');
+            fetch('/cart/update', {method: 'POST', body: fd, credentials: 'same-origin'}).catch(function(e){console.warn(e)});
+        }catch(e){console.warn(e)}
+    }
+
+    document.querySelectorAll('input[name="cart[]"]').forEach(function(cb){
+        cb.addEventListener('change', function(e){
+            postUpdate(cb.value, cb.checked);
+        });
+    });
+})();
+</script>
+
 <!-- Paginacja -->
 <?php if ($totalPages > 1): ?>
     <div class="pagination">

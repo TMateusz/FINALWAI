@@ -19,7 +19,7 @@
     
     <form method="post" enctype="multipart/form-data">
         <label>E-mail: <input type="email" name="address_email" required></label><br>
-        <label>Login: <input name="login" required></label><br>
+        <label>Login: <input type="text"  name="login" required></label><br>
         <label>Hasło: <input type="password" name="password1" required></label><br>
         <label>Powtórz hasło: <input type="password" name="password2" required></label><br>
         <label>Zdjęcie profilowe: <input type="file" name="fileToUpload" required></label><br>

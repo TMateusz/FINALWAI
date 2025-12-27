@@ -1,14 +1,14 @@
 <?php
-    require_once __DIR__ . '/../Models/UserModel.php';
-    require_once __DIR__ . '/../Business/UserManager.php';
-
+    
     class AccountManager{
         private $userModel;
         private $userManager;
+        private $imageManager;
 
-        public function __construct(){
-            $this->userModel = new UserModel();
-            $this->userManager = new UserManager();
+        public function __construct($userModel = null, $userManager = null, $imageManager = null){
+            $this->userModel = $userModel ?? new UserModel();
+            $this->userManager = $userManager ?? new UserManager($this->userModel);
+            $this->imageManager = $imageManager ?? new ImageManager(new ImageModel());
         }
 
         public function authenticate($login, $password){
@@ -24,32 +24,20 @@
         }
 
         public function login($userId,$login){
-            session_start();
-            $_SESSION['user_id']=$userId;
-            $_SESSION['login']=$login;
+            return ['user_id' => $userId, 'login' => $login];
         }
 
         public function logout(){
-            // Zachowaj koszyk przed wylogowaniem
-            $cart = $_SESSION['cart'] ?? [];
-            $quantities = $_SESSION['quantities'] ?? [];
-            
-            session_unset();
-            session_destroy();
-            
-            // Rozpocznij nową sesję i przywróć koszyk
-            session_start();
-            $_SESSION['cart'] = $cart;
-            $_SESSION['quantities'] = $quantities;
+            return true;
         }
 
-        public function isLoggedIn(){
-            return isset($_SESSION['user_id']);
+        public function isLoggedIn(array $session){
+            return isset($session['user_id']);
         }
 
-        public function getCurrentUser(){
-            if (isset($_SESSION['login'])) {
-                return $this->userModel->getByLogin($_SESSION['login']);
+        public function getCurrentUser($login = null){
+            if ($login) {
+                return $this->userModel->getByLogin($login);
             }
             return null;
         }
@@ -61,24 +49,20 @@
             }
             $exists = $this->userManager->userExists($email, $login);
             if ($exists){
-                return ["User with this email or login already exists."];
+                return ["Użytownik z takim e-mailem/loginem już istnieje"];
             }
             $passwordHash = UserManager::hashPassword($password1);
             $crated=$this->userModel->create($login, $passwordHash, $email);
             if (!$crated){
-                return ["Failed to create user due to a database error."];  
+                return ["Błąd bazy danych"];  
             }
 
-            // Profile file is required by the form; save it using ImageManager.
-            if (session_status() === PHP_SESSION_NONE) session_start();
-            require_once __DIR__ . '/ImageManager.php';
-            $imageManager = new ImageManager();
-            $uploadResult = $imageManager->uploadProfileImage($login, $profilePhotoFile);
+            $uploadResult = $this->imageManager->uploadProfileImage($login, $profilePhotoFile);
+            $warning = null;
             if ($uploadResult === false || is_array($uploadResult)){
-                // Save warning for UI but do not fail registration
-                $_SESSION['profile_upload_warning'] = is_array($uploadResult) ? implode(' ', $uploadResult) : 'Failed to save profile image.';
+                $warning = is_array($uploadResult) ? implode(' ', $uploadResult) : 'Blad zapisu zdjęcia profilowego.';
             }
 
-            return true;
+            return $warning ? ['success' => true, 'warning' => $warning] : true;
         }
     }
